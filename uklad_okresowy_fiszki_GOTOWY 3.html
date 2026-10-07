@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Układ okresowy – interaktywne fiszki</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f4f6f9;color:#182033}
+header{padding:20px;text-align:center;background:#fff;border-bottom:1px solid #d9dee8}
+h1{margin:0 0 8px;font-size:28px}
+p{margin:4px 0;color:#5b6577}
+.toolbar{display:flex;justify-content:center;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap}
+button.mode{border:0;border-radius:10px;padding:10px 15px;background:#253858;color:#fff;font-weight:700;cursor:pointer}
+.status{font-size:14px;color:#5b6577}
+.board-wrap{overflow-x:auto;padding:20px}
+.board{display:grid;grid-template-columns:repeat(18,72px);grid-template-rows:repeat(9,76px);gap:5px;width:max-content;margin:auto}
+.element{width:72px;height:76px;border:0;background:transparent;padding:0;cursor:pointer;perspective:900px;touch-action:manipulation}
+.card-inner{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform .55s ease}
+.element.flipped .card-inner{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+background:#fff;border:2px solid #bdc7d8;border-radius:10px;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+box-shadow:0 2px 5px rgba(0,0,0,.08);overflow:hidden}
+.face.back{transform:rotateY(180deg);background:#eef3fb}
+.number{position:absolute;top:4px;left:6px;font-size:9px;color:#788398}
+.symbol{font-size:25px;font-weight:800}
+.name{font-size:10px;margin-top:5px;text-align:center;padding:0 3px}
+.back .symbol{font-size:18px}
+.back .name{font-size:13px;font-weight:700}
+.element:focus-visible{outline:3px solid #3b82f6;outline-offset:2px;border-radius:12px}
+.label{display:flex;align-items:center;justify-content:center;border:1px dashed #aeb9ca;border-radius:10px;color:#657187;font-size:10px}
+@media(max-width:800px){
+.board{grid-template-columns:repeat(18,60px);grid-template-rows:repeat(9,64px);gap:4px}
+.element{width:60px;height:64px}.symbol{font-size:21px}.name{font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){.card-inner{transition:none}}
+
+/* Fix: ensure every element card has visible content */
+.element { 
+  position: relative !important;
+  display: block !important;
+  min-width: 0 !important;
+  min-height: 82px !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+.card-inner {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 82px !important;
+  display: block !important;
+}
+.card-front, .card-back {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 82px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  visibility: visible !important;
+  box-sizing: border-box !important;
+}
+.card-front { transform: rotateY(0deg) !important; }
+.card-back { transform: rotateY(180deg) !important; }
+
+
+.card-front .symbol, .card-front .name,
+.card-back .symbol, .card-back .name {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+.card-front .symbol, .card-back .symbol {
+  font-size: 30px !important;
+  font-weight: 800 !important;
+  line-height: 1.05 !important;
+}
+.card-front .name, .card-back .name {
+  font-size: 13px !important;
+  line-height: 1.15 !important;
+  margin-top: 5px !important;
+}
+
+</style>
+</head>
+<body>
+<header>
+<h1>Układ okresowy – fiszki</h1>
+<p>Kliknij dowolny pierwiastek, aby obrócić jego fiszkę.</p>
+<div class="toolbar">
+<button class="mode" id="modeButton" type="button">Tryb: symbol → nazwa</button>
+<span class="status" id="status">118 osobnych fiszek</span>
+</div>
+</header>
+
+<div class="board-wrap">
+<div class="board" id="board" aria-label="Układ okresowy pierwiastków"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+const data = [
+[1,"H","Wodór",1,1],[2,"He","Hel",18,1],
+[3,"Li","Lit",1,2],[4,"Be","Beryl",2,2],[5,"B","Bor",13,2],[6,"C","Węgiel",14,2],[7,"N","Azot",15,2],[8,"O","Tlen",16,2],[9,"F","Fluor",17,2],[10,"Ne","Neon",18,2],
+[11,"Na","Sód",1,3],[12,"Mg","Magnez",2,3],[13,"Al","Glin",13,3],[14,"Si","Krzem",14,3],[15,"P","Fosfor",15,3],[16,"S","Siarka",16,3],[17,"Cl","Chlor",17,3],[18,"Ar","Argon",18,3],
+[19,"K","Potas",1,4],[20,"Ca","Wapń",2,4],[21,"Sc","Skand",3,4],[22,"Ti","Tytan",4,4],[23,"V","Wanad",5,4],[24,"Cr","Chrom",6,4],[25,"Mn","Mangan",7,4],[26,"Fe","Żelazo",8,4],[27,"Co","Kobalt",9,4],[28,"Ni","Nikiel",10,4],[29,"Cu","Miedź",11,4],[30,"Zn","Cynk",12,4],[31,"Ga","Gal",13,4],[32,"Ge","German",14,4],[33,"As","Arsen",15,4],[34,"Se","Selen",16,4],[35,"Br","Brom",17,4],[36,"Kr","Krypton",18,4],
+[37,"Rb","Rubid",1,5],[38,"Sr","Stront",2,5],[39,"Y","Itr",3,5],[40,"Zr","Cyrkon",4,5],[41,"Nb","Niob",5,5],[42,"Mo","Molibden",6,5],[43,"Tc","Technet",7,5],[44,"Ru","Ruten",8,5],[45,"Rh","Rod",9,5],[46,"Pd","Pallad",10,5],[47,"Ag","Srebro",11,5],[48,"Cd","Kadm",12,5],[49,"In","Ind",13,5],[50,"Sn","Cyna",14,5],[51,"Sb","Antymon",15,5],[52,"Te","Tellur",16,5],[53,"I","Jod",17,5],[54,"Xe","Ksenon",18,5],
+[55,"Cs","Cez",1,6],[56,"Ba","Bar",2,6],[57,"La","Lantan",3,6],[72,"Hf","Hafn",4,6],[73,"Ta","Tantal",5,6],[74,"W","Wolfram",6,6],[75,"Re","Ren",7,6],[76,"Os","Osm",8,6],[77,"Ir","Iryd",9,6],[78,"Pt","Platyna",10,6],[79,"Au","Złoto",11,6],[80,"Hg","Rtęć",12,6],[81,"Tl","Tal",13,6],[82,"Pb","Ołów",14,6],[83,"Bi","Bizmut",15,6],[84,"Po","Polon",16,6],[85,"At","Astat",17,6],[86,"Rn","Radon",18,6],
+[87,"Fr","Frans",1,7],[88,"Ra","Rad",2,7],[89,"Ac","Aktyn",3,7],[104,"Rf","Rutherford",4,7],[105,"Db","Dubn",5,7],[106,"Sg","Seaborg",6,7],[107,"Bh","Bohr",7,7],[108,"Hs","Has",8,7],[109,"Mt","Meitner",9,7],[110,"Ds","Darmsztadt",10,7],[111,"Rg","Roentgen",11,7],[112,"Cn","Kopernik",12,7],[113,"Nh","Nihon",13,7],[114,"Fl","Flerow",14,7],[115,"Mc","Moskow",15,7],[116,"Lv","Liwermor",16,7],[117,"Ts","Tenes",17,7],[118,"Og","Oganesson",18,7],
+[58,"Ce","Cer",4,8],[59,"Pr","Prazeodym",5,8],[60,"Nd","Neodym",6,8],[61,"Pm","Promet",7,8],[62,"Sm","Samary",8,8],[63,"Eu","Europ",9,8],[64,"Gd","Gadolin",10,8],[65,"Tb","Terb",11,8],[66,"Dy","Dysproz",12,8],[67,"Ho","Holm",13,8],[68,"Er","Erb",14,8],[69,"Tm","Tul",15,8],[70,"Yb","Iterb",16,8],[71,"Lu","Lutet",17,8],
+[90,"Th","Tor",4,9],[91,"Pa","Protaktyn",5,9],[92,"U","Uran",6,9],[93,"Np","Neptun",7,9],[94,"Pu","Pluton",8,9],[95,"Am","Ameryk",9,9],[96,"Cm","Kiur",10,9],[97,"Bk","Berkel",11,9],[98,"Cf","Kaliforn",12,9],[99,"Es","Einstein",13,9],[100,"Fm","Ferm",14,9],[101,"Md","Mendelew",15,9],[102,"No","Nobel",16,9],[103,"Lr","Lorens",17,9]
+];
+
+const board=document.getElementById("board");
+const modeButton=document.getElementById("modeButton");
+let nameFirst=false;
+
+function makeCard(item){
+  const [z,s,n,col,row]=item;
+  const el=document.createElement("button");
+  el.type="button";
+  el.className="element";
+  el.style.gridColumn=col;
+  el.style.gridRow=row;
+  el.setAttribute("aria-label",n+", symbol "+s+". Kliknij, aby obrócić.");
+  el.innerHTML =
+    '<span class="card-inner">'+
+      '<span class="face front">'+
+        '<span class="number">'+z+'</span>'+
+        '<span class="symbol">'+s+'</span>'+
+        '<span class="name">'+n+'</span>'+
+      '</span>'+
+      '<span class="face back">'+
+        '<span class="number">'+z+'</span>'+
+        '<span class="symbol">'+s+'</span>'+
+        '<span class="name">'+n+'</span>'+
+      '</span>'+
+    '</span>';
+
+  el.addEventListener("click",function(){
+    el.classList.toggle("flipped");
+  });
+
+  return el;
+}
+
+function render(){
+  board.innerHTML="";
+  const occupied=new Set(data.map(e=>e[3]+"-"+e[4]));
+
+  // Empty positions are intentionally left empty to preserve the periodic-table shape.
+  const l=document.createElement("div");
+  l.className="label"; l.textContent="Lantanowce";
+  l.style.gridColumn="1"; l.style.gridRow="8";
+  board.appendChild(l);
+
+  const a=document.createElement("div");
+  a.className="label"; a.textContent="Aktynowce";
+  a.style.gridColumn="1"; a.style.gridRow="9";
+  board.appendChild(a);
+
+  data.forEach(e=>board.appendChild(makeCard(e)));
+  applyMode();
+}
+
+function applyMode(){
+  document.querySelectorAll(".element").forEach(el=>{
+    const front=el.querySelector(".front");
+    const back=el.querySelector(".back");
+    const frontSymbol=front.querySelector(".symbol");
+    const frontName=front.querySelector(".name");
+    const backSymbol=back.querySelector(".symbol");
+    const backName=back.querySelector(".name");
+
+    el.classList.remove("flipped");
+
+    if(nameFirst){
+      frontSymbol.style.display="none";
+      frontName.style.display="block";
+      backSymbol.style.display="block";
+      backName.style.display="none";
+    }else{
+      frontSymbol.style.display="block";
+      frontName.style.display="none";
+      backSymbol.style.display="none";
+      backName.style.display="block";
+    }
+  });
+  modeButton.textContent=nameFirst ? "Tryb: nazwa → symbol" : "Tryb: symbol → nazwa";
+}
+
+modeButton.addEventListener("click",function(){
+  nameFirst=!nameFirst;
+  applyMode();
+});
+
+render();
+})();
+</script>
+</body>
+</html>
